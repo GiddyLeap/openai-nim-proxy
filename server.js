@@ -15,20 +15,14 @@ const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.c
 const NIM_API_KEY = process.env.NIM_API_KEY;
 
 // 🔥 REASONING DISPLAY TOGGLE - Shows/hides reasoning in output
-const SHOW_REASONING = false; // Set to true to show reasoning with <think> tags
+const SHOW_REASONING = true; // Set to true to show reasoning with <think> tags
 
 // 🔥 THINKING MODE TOGGLE - Enables thinking for specific models that support it
-const ENABLE_THINKING_MODE = false; // Set to true to enable chat_template_kwargs thinking parameter
+const ENABLE_THINKING_MODE = true; // Set to true to enable chat_template_kwargs thinking parameter
 
 // Model mapping (adjust based on available NIM models)
 const MODEL_MAPPING = {
-  'gpt-3.5-turbo': 'nvidia/llama-3.1-nemotron-ultra-253b-v1',
-  'gpt-4': 'qwen/qwen3-coder-480b-a35b-instruct',
-  'gpt-4-turbo': 'moonshotai/kimi-k2-instruct-0905',
-  'gpt-4o': 'deepseek-ai/deepseek-v3.1',
-  'claude-3-opus': 'openai/gpt-oss-120b',
-  'claude-3-sonnet': 'openai/gpt-oss-20b',
-  'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking' 
+  'glm-5.3': 'z-ai/glm-5.3'
 };
 
 // Health check endpoint
@@ -40,7 +34,54 @@ app.get('/health', (req, res) => {
     thinking_mode: ENABLE_THINKING_MODE
   });
 });
+app.get('/test-nvidia', async (req, res) => {
+  try {
+    const response = await axios.post(
+      `${NIM_API_BASE}/chat/completions`,
+      {
+        model: 'z-ai/glm-5.3',
+        messages: [
+          {
+            role: 'user',
+            content: 'Say hello in one short sentence.'
+          }
+        ],
+        max_tokens: 50,
+        reasoning_effort: 'low',
+        stream: false
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${NIM_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
+    console.log('NVIDIA TEST SUCCESS:', JSON.stringify(response.data));
+
+    res.json({
+      success: true,
+      response: response.data
+    });
+
+  } catch (error) {
+    console.error('========== NVIDIA TEST ERROR ==========');
+    console.error('STATUS:', error.response?.status);
+    console.error('STATUS TEXT:', error.response?.statusText);
+    console.error('NVIDIA RESPONSE:', JSON.stringify(error.response?.data));
+    console.error('ERROR:', error.message);
+    console.error('========================================');
+
+    res.status(error.response?.status || 500).json({
+      success: false,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      nvidiaResponse: error.response?.data,
+      error: error.message
+    });
+  }
+});
 // List models endpoint (OpenAI compatible)
 app.get('/v1/models', (req, res) => {
   const models = Object.keys(MODEL_MAPPING).map(model => ({
@@ -59,7 +100,12 @@ app.get('/v1/models', (req, res) => {
 // Chat completions endpoint (main proxy)
 app.post('/v1/chat/completions', async (req, res) => {
   try {
-    const { model, messages, temperature, max_tokens, stream } = req.body;
+    console.log('========== INCOMING CHAT REQUEST ==========');
+    console.log('Model:', req.body.model);
+    console.log('Messages:', req.body.messages?.length);
+    console.log('Stream requested:', req.body.stream);
+    console.log('============================================');
+    const { model, messages, temperature, top_p, max_tokens, stream } = req.body;
     
     // Smart model selection with fallback
     let nimModel = MODEL_MAPPING[model];
@@ -95,12 +141,18 @@ app.post('/v1/chat/completions', async (req, res) => {
     const nimRequest = {
       model: nimModel,
       messages: messages,
-      temperature: temperature || 0.6,
-      max_tokens: max_tokens || 9024,
-      extra_body: ENABLE_THINKING_MODE ? { chat_template_kwargs: { thinking: true } } : undefined,
-      stream: stream || false
+      temperature: temperature ?? 0.5,
+      top_p: top_p ?? 1,
+      max_tokens: max_tokens ?? 1024,
+      reasoning_effort: "low",
+      stream: true
     };
-    
+
+    console.log('========== NVIDIA REQUEST ==========');
+    console.log('NVIDIA MODEL:', nimModel);
+    console.log('NVIDIA STREAM:', nimRequest.stream);
+    console.log('NVIDIA MESSAGE COUNT:', nimRequest.messages?.length);
+    console.log('====================================');
     // Make request to NVIDIA NIM API
     const response = await axios.post(`${NIM_API_BASE}/chat/completions`, nimRequest, {
       headers: {
@@ -214,16 +266,26 @@ app.post('/v1/chat/completions', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Proxy error:', error.message);
-    
-    res.status(error.response?.status || 500).json({
-      error: {
-        message: error.message || 'Internal server error',
-        type: 'invalid_request_error',
-        code: error.response?.status || 500
-      }
-    });
-  }
+  console.error('========== PROXY ERROR ==========');
+  console.error('STATUS:', error.response?.status);
+  console.error('STATUS TEXT:', error.response?.statusText);
+  console.error('NVIDIA RESPONSE:', JSON.stringify(error.response?.data));
+  console.error('REQUEST URL:', error.config?.url);
+  console.error('ERROR MESSAGE:', error.message);
+  console.error('=================================');
+
+  res.status(error.response?.status || 500).json({
+    error: {
+      message:
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        error.message ||
+        'Internal server error',
+      type: 'invalid_request_error',
+      code: error.response?.status || 500
+    }
+  });
+}
 });
 
 // Catch-all for unsupported endpoints
