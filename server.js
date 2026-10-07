@@ -43,11 +43,12 @@ app.get('/test-nvidia', async (req, res) => {
         messages: [
           {
             role: 'user',
-            content: 'Say hello in one short sentence.'
+            content: 'hello, type me a sentence'
           }
         ],
-        max_tokens: 50,
-        reasoning_effort: 'low',
+        temperature: 0.5,
+        top_p: 1,
+        max_tokens: 1024,
         stream: false
       },
       {
@@ -55,7 +56,7 @@ app.get('/test-nvidia', async (req, res) => {
           'Authorization': `Bearer ${NIM_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 60000
       }
     );
 
@@ -67,31 +68,28 @@ app.get('/test-nvidia', async (req, res) => {
     });
 
   } catch (error) {
-  console.error('========== NVIDIA TEST ERROR ==========');
-  console.error('STATUS:', error.response?.status);
-  console.error('STATUS TEXT:', error.response?.statusText);
-
-  console.error(
-    'NVIDIA RESPONSE:',
-    typeof error.response?.data === 'string'
-      ? error.response.data
-      : '[stream or non-JSON response]'
-  );
-
-  console.error('ERROR:', error.message);
-  console.error('========================================');
-
-  res.status(error.response?.status || 500).json({
-    success: false,
-    status: error.response?.status,
-    statusText: error.response?.statusText,
-    nvidiaResponse:
+    console.error('========== NVIDIA TEST ERROR ==========');
+    console.error('STATUS:', error.response?.status);
+    console.error('STATUS TEXT:', error.response?.statusText);
+    console.error('NVIDIA RESPONSE:',
       typeof error.response?.data === 'string'
         ? error.response.data
-        : null,
-    error: error.message
-  });
-}
+        : '[stream or non-JSON response]'
+    );
+    console.error('ERROR:', error.message);
+    console.error('========================================');
+
+    res.status(error.response?.status || 500).json({
+      success: false,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      nvidiaResponse:
+        typeof error.response?.data === 'string'
+          ? error.response.data
+          : null,
+      error: error.message
+    });
+  }
 });
 
 // Chat completions endpoint (main proxy)
@@ -141,7 +139,6 @@ app.post('/v1/chat/completions', async (req, res) => {
       temperature: temperature ?? 0.5,
       top_p: top_p ?? 1,
       max_tokens: max_tokens ?? 1024,
-      reasoning_effort: "low",
       stream: false
     };
 
