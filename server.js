@@ -91,6 +91,7 @@ app.get('/test-nvidia', async (req, res) => {
     error: error.message
   });
 }
+});
 
 // Chat completions endpoint (main proxy)
 app.post('/v1/chat/completions', async (req, res) => {
