@@ -66,36 +66,31 @@ app.get('/test-nvidia', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('========== NVIDIA TEST ERROR ==========');
-    console.error('STATUS:', error.response?.status);
-    console.error('STATUS TEXT:', error.response?.statusText);
-    console.error('NVIDIA RESPONSE:', JSON.stringify(error.response?.data));
-    console.error('ERROR:', error.message);
-    console.error('========================================');
+  console.error('========== NVIDIA TEST ERROR ==========');
+  console.error('STATUS:', error.response?.status);
+  console.error('STATUS TEXT:', error.response?.statusText);
 
-    res.status(error.response?.status || 500).json({
-      success: false,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      nvidiaResponse: error.response?.data,
-      error: error.message
-    });
-  }
-});
-// List models endpoint (OpenAI compatible)
-app.get('/v1/models', (req, res) => {
-  const models = Object.keys(MODEL_MAPPING).map(model => ({
-    id: model,
-    object: 'model',
-    created: Date.now(),
-    owned_by: 'nvidia-nim-proxy'
-  }));
-  
-  res.json({
-    object: 'list',
-    data: models
+  console.error(
+    'NVIDIA RESPONSE:',
+    typeof error.response?.data === 'string'
+      ? error.response.data
+      : '[stream or non-JSON response]'
+  );
+
+  console.error('ERROR:', error.message);
+  console.error('========================================');
+
+  res.status(error.response?.status || 500).json({
+    success: false,
+    status: error.response?.status,
+    statusText: error.response?.statusText,
+    nvidiaResponse:
+      typeof error.response?.data === 'string'
+        ? error.response.data
+        : null,
+    error: error.message
   });
-});
+}
 
 // Chat completions endpoint (main proxy)
 app.post('/v1/chat/completions', async (req, res) => {
@@ -145,7 +140,7 @@ app.post('/v1/chat/completions', async (req, res) => {
       top_p: top_p ?? 1,
       max_tokens: max_tokens ?? 1024,
       reasoning_effort: "low",
-      stream: true
+      stream: false
     };
 
     console.log('========== NVIDIA REQUEST ==========');
