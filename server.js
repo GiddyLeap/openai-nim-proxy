@@ -54,7 +54,8 @@ app.get('/test-nvidia', async (req, res) => {
         headers: {
           'Authorization': `Bearer ${NIM_API_KEY}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 30000
       }
     );
 
