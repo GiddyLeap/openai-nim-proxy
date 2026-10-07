@@ -37,57 +37,52 @@ app.get('/health', (req, res) => {
 app.get('/test-nvidia', async (req, res) => {
   try {
     const response = await axios.post(
-      `${NIM_API_BASE}/chat/completions`,
+  `${NIM_API_BASE}/chat/completions`,
+  {
+    model: 'z-ai/glm-5.3',
+    messages: [
       {
-        model: 'z-ai/glm-5.3',
-        messages: [
-          {
-            role: 'user',
-            content: 'hello, type me a sentence'
-          }
-        ],
-        temperature: 0.5,
-        top_p: 1,
-        max_tokens: 1024,
-        stream: false
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${NIM_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 60000
+        role: 'user',
+        content: 'hello, type me a sentence'
       }
-    );
+    ],
+    temperature: 0.5,
+    top_p: 1,
+    max_tokens: 1024,
+    stream: true
+  },
+  {
+    headers: {
+      'Authorization': `Bearer ${NIM_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    responseType: 'stream',
+    timeout: 120000
+  }
+);
 
-    console.log('NVIDIA TEST SUCCESS:', JSON.stringify(response.data));
+let output = '';
 
-    res.json({
-      success: true,
-      response: response.data
-    });
+response.data.on('data', (chunk) => {
+  output += chunk.toString();
+});
 
-  } catch (error) {
-    console.error('========== NVIDIA TEST ERROR ==========');
-    console.error('STATUS:', error.response?.status);
-    console.error('STATUS TEXT:', error.response?.statusText);
-    console.error('NVIDIA RESPONSE:',
-      typeof error.response?.data === 'string'
-        ? error.response.data
-        : '[stream or non-JSON response]'
-    );
-    console.error('ERROR:', error.message);
-    console.error('========================================');
+response.data.on('end', () => {
+  console.log('NVIDIA TEST SUCCESS:', output);
 
-    res.status(error.response?.status || 500).json({
+  res.json({
+    success: true,
+    rawResponse: output
+  });
+});
+
+response.data.on('error', (err) => {
+  console.error('NVIDIA STREAM ERROR:', err.message);
+
+  if (!res.headersSent) {
+    res.status(500).json({
       success: false,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      nvidiaResponse:
-        typeof error.response?.data === 'string'
-          ? error.response.data
-          : null,
-      error: error.message
+      error: err.message
     });
   }
 });
