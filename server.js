@@ -22,7 +22,7 @@ const ENABLE_THINKING_MODE = true; // Set to true to enable chat_template_kwargs
 
 // Model mapping (adjust based on available NIM models)
 const MODEL_MAPPING = {
-  'glm-5.3': 'z-ai/glm-5.3'
+  'gemma-4-31b-it': 'google/gemma-4-31b-it'
 };
 
 // Health check endpoint
@@ -39,17 +39,20 @@ app.get('/test-nvidia', async (req, res) => {
     const response = await axios.post(
       `${NIM_API_BASE}/chat/completions`,
       {
-        model: 'z-ai/glm-5.3',
-        messages: [
-          {
-            role: 'user',
-            content: 'hello, type me a sentence'
-          }
-        ],
-        temperature: 0.5,
-        top_p: 1,
-        max_tokens: 1024,
-        stream: true
+        mmodel: 'google/gemma-4-31b-it',
+messages: [
+  {
+    role: 'user',
+    content: 'hello, type me a sentence'
+  }
+],
+temperature: 1.0,
+top_p: 0.95,
+max_tokens: 10240,
+chat_template_kwargs: {
+  enable_thinking: true
+},
+stream: true
       },
       {
         headers: {
@@ -151,7 +154,7 @@ app.post('/v1/chat/completions', async (req, res) => {
       messages: messages,
       temperature: temperature ?? 1,
       top_p: top_p ?? 0.95,
-      max_tokens: max_tokens ?? 128000,
+      max_tokens: max_tokens ?? 64000,
       stream: stream
     };
 
