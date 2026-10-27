@@ -39,72 +39,50 @@ app.get('/test-nvidia', async (req, res) => {
     const response = await axios.post(
       `${NIM_API_BASE}/chat/completions`,
       {
-        mmodel: 'google/gemma-4-31b-it',
-messages: [
-  {
-    role: 'user',
-    content: 'hello, type me a sentence'
-  }
-],
-temperature: 1.0,
-top_p: 0.95,
-max_tokens: 10240,
-chat_template_kwargs: {
-  enable_thinking: true
-},
-stream: true
+        model: 'google/gemma-4-31b-it',
+        messages: [
+          {
+            role: 'user',
+            content: 'Reply with one short sentence.'
+          }
+        ],
+        temperature: 1.0,
+        top_p: 0.95,
+        max_tokens: 128,
+        stream: false
       },
       {
         headers: {
           'Authorization': `Bearer ${NIM_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        responseType: 'stream',
+        responseType: 'json',
         timeout: 120000
       }
     );
 
-    let output = '';
+    console.log('NVIDIA TEST SUCCESS:', JSON.stringify(response.data));
 
-    response.data.on('data', (chunk) => {
-      output += chunk.toString();
-    });
-
-    response.data.on('end', () => {
-      console.log('NVIDIA TEST SUCCESS:', output);
-
-      res.json({
-        success: true,
-        rawResponse: output
-      });
-    });
-
-    response.data.on('error', (err) => {
-      console.error('NVIDIA STREAM ERROR:', err.message);
-
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          error: err.message
-        });
-      }
+    res.json({
+      success: true,
+      response: response.data
     });
 
   } catch (error) {
     console.error('========== NVIDIA TEST ERROR ==========');
     console.error('STATUS:', error.response?.status);
     console.error('STATUS TEXT:', error.response?.statusText);
+    console.error('NVIDIA ERROR BODY:', error.response?.data);
     console.error('ERROR:', error.message);
     console.error('========================================');
 
-    if (!res.headersSent) {
-      res.status(error.response?.status || 500).json({
-        success: false,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        error: error.message
-      });
-    }
+    res.status(error.response?.status || 500).json({
+      success: false,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      error: error.message,
+      details: error.response?.data || null
+    });
   }
 });
 
